@@ -113,7 +113,7 @@ $("csv").addEventListener("click", () => {
   const csv = "﻿" + [HEADERS, ...rows()].map(r => r.map(q).join(",")).join("\r\n");   // BOM: 엑셀 한글 깨짐 방지
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"}));
-  a.download = `화장실답사_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `급똥답사_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
