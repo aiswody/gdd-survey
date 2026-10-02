@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>급똥 답사 검수</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>답사 검수</h1>
+    <p class="sub">사용자 제보를 확인하고 승인하거나 반려해요. 팀원만 로그인할 수 있어요.</p>
+    <span class="status" id="status">확인 중…</span>
+  </header>
+
+  <!-- 로그인 -->
+  <form class="card" id="loginCard" hidden>
+    <h2>팀 로그인</h2>
+    <input id="email" type="email" autocomplete="username" placeholder="이메일" required>
+    <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" required>
+    <button class="primary" type="submit">로그인</button>
+    <p class="sub">계정은 Supabase 대시보드에서 팀원만 만들어요. 여기서 가입은 안 돼요.</p>
+  </form>
+
+  <div id="app" hidden>
+    <section class="card">
+      <div class="stats">
+        <div class="stat"><b id="cPending">0</b><span>검수 대기</span></div>
+        <div class="stat"><b id="cApproved">0</b><span>승인</span></div>
+        <div class="stat"><b id="cStations">0</b><span>역</span></div>
+      </div>
+      <div class="seg" id="tabs">
+        <button data-t="pending" aria-pressed="true">대기</button>
+        <button data-t="approved" aria-pressed="false">승인</button>
+        <button data-t="rejected" aria-pressed="false">반려</button>
+      </div>
+      <input id="filter" placeholder="역 이름으로 거르기">
+      <div class="list" id="list"></div>
+    </section>
+
+    <section class="card">
+      <h2>내보내기 (승인된 경로)</h2>
+      <div class="btns">
+        <button class="primary" id="csv">엑셀 파일 받기</button>
+        <button class="secondary" id="tsv">표로 복사</button>
+      </div>
+      <p class="sub">"표로 복사"는 구글 시트 A1 칸에 붙여넣으면 돼요.</p>
+    </section>
+
+    <div class="row between">
+      <a class="ghost" href="./">← 답사 메모로</a>
+      <button class="ghost" id="logout">로그아웃</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

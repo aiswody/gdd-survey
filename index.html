@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>급똥 답사 메모</title>
+<meta name="description" content="지하철에서 몇 번 칸 몇 번 문으로 내리면 화장실이 제일 가까운지, 같이 기록해 주세요.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>급똥 답사 메모</h1>
+    <p class="sub">몇 번 칸 몇 번 문에서 내리면 화장실이 제일 가까운지 알려주세요. 버튼만 누르면 기록돼요.</p>
+    <span class="status" id="status">불러오는 중…</span>
+  </header>
+
+  <!-- 역 -->
+  <section class="card">
+    <h2>역</h2>
+    <div class="known" id="known" hidden></div>
+    <div class="row">
+      <input id="station" class="grow" placeholder="역 이름 (예: 충무로)" autocomplete="off">
+      <input id="line" class="num" inputmode="numeric" placeholder="호선">
+    </div>
+    <div class="row">
+      <span class="label">화장실</span>
+      <input id="toilets" class="num" inputmode="numeric" placeholder="개수">
+      <span class="label">개 /</span>
+      <input id="stalls" class="num" inputmode="numeric" placeholder="칸">
+      <span class="label">칸</span>
+    </div>
+    <div class="seg" id="gate">
+      <button data-v="개찰구 내부" aria-pressed="false">개찰구 안</button>
+      <button data-v="개찰구 외부" aria-pressed="false">개찰구 밖</button>
+    </div>
+  </section>
+
+  <!-- 방향 -->
+  <section class="card">
+    <h2>진행 방향</h2>
+    <div class="row">
+      <input id="prev" class="grow" placeholder="한쪽 옆 역" autocomplete="off">
+      <input id="next" class="grow" placeholder="반대쪽 옆 역" autocomplete="off">
+    </div>
+    <div class="seg" id="dirSeg">
+      <button data-d="0" aria-pressed="true">방향 1</button>
+      <button data-d="1" aria-pressed="false">방향 2 (반대)</button>
+    </div>
+    <div class="dirline" id="dirLine"></div>
+  </section>
+
+  <!-- 경로 편집 -->
+  <section class="card" id="editor">
+    <h2 id="editorTitle">새 경로</h2>
+
+    <div class="row between">
+      <span class="label">하차 문 (칸 → 문)</span>
+      <span class="door-out" id="doorOut">–</span>
+    </div>
+    <div class="pick" id="carPick"></div>
+    <div class="pick doors" id="doorPick"></div>
+    <div class="row">
+      <span class="label">반대 방향 맞은편 문</span>
+      <input id="opp" class="grow" placeholder="예: 4-4 (몰라도 됨)">
+    </div>
+
+    <div class="label">동선</div>
+    <div class="strip" id="strip"></div>
+    <div class="row between">
+      <span class="target" id="target"></span>
+      <span>
+        <button class="ghost" id="undo">한 칸 지우기</button>
+        <button class="ghost" id="clearSteps">비우기</button>
+      </span>
+    </div>
+
+    <div class="row between">
+      <span class="label">단계 버튼</span>
+      <button class="ghost" id="editActs">내 버튼 편집</button>
+    </div>
+    <div class="acts" id="acts"></div>
+    <div class="row" id="newActRow" hidden>
+      <input id="newAct" class="grow" placeholder="새 단계 이름 (예: 환승통로, 지하상가)" maxlength="16">
+      <button class="secondary" id="newActOk">추가</button>
+      <button class="ghost" id="newActCancel">취소</button>
+    </div>
+
+    <div class="label">선택한 단계에 붙이기</div>
+    <div class="mods" id="preMods"></div>
+    <div class="mods" id="signMods"></div>
+    <div class="row">
+      <input id="custom" class="grow" placeholder="직접 쓰기 (예: 4호선 방향, 한 칸만, 피자가게)" maxlength="30">
+      <button id="addCustom">붙이기</button>
+    </div>
+
+    <div class="label">소요 시간 (문 열릴 때 시작 → 화장실 입구에서 멈춤, 빠른 걸음)</div>
+    <div class="watch">
+      <span class="clock" id="clock">0:00.0</span>
+      <button class="go" id="go">시작</button>
+      <button class="ghost" id="resetWatch">초기화</button>
+    </div>
+    <div class="row">
+      <input id="min" class="num" inputmode="numeric" placeholder="0"><span class="label">분</span>
+      <input id="sec" class="num" inputmode="numeric" placeholder="0"><span class="label">초</span>
+    </div>
+
+    <div class="label">비고</div>
+    <textarea id="note" maxlength="500" placeholder="예: 1호선 방향으로 가는 거 아님"></textarea>
+
+    <div class="row">
+      <span class="label">닉네임 (선택)</span>
+      <input id="nickname" class="grow" maxlength="20" placeholder="제보자 이름으로 표시돼요">
+    </div>
+    <input id="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+    <button class="primary" id="save">경로 등록</button>
+    <p class="sub" id="saveHint">등록한 경로는 팀이 확인한 뒤 앱에 반영돼요.</p>
+  </section>
+
+  <!-- 이 역의 경로 -->
+  <section class="card">
+    <h2 id="savedTitle">이 역에 등록된 경로</h2>
+    <div class="list" id="saved"></div>
+    <div class="label">메모장에 붙일 글 (이 역)</div>
+    <pre class="out" id="out"></pre>
+    <button class="secondary" id="copy">이 역 글 복사</button>
+  </section>
+
+  <footer>
+    개인정보는 받지 않아요. 닉네임은 선택이에요. · <a href="admin.html">팀 검수</a>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
