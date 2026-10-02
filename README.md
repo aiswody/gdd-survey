@@ -1,117 +1,53 @@
-# 급똥 답사 메모
+# 지하철 화장실 답사
 
-지하철 역에서 **몇 번 칸 몇 번 문으로 내리면 화장실이 제일 가까운지** 누구나 제보하는 웹사이트.
-팀이 검수해서 승인한 경로만 공개돼요.
+지하철역에서 **몇 번 칸 몇 번 문으로 내리면 화장실이 가장 가까운지** 제보받는 웹사이트.
+누구나 가입 없이 제보할 수 있고, 팀이 검수해서 승인한 경로만 공개됩니다.
 
-- `index.html` 제보 화면 (누구나)
-- `admin.html` 검수 화면 (팀원만 로그인)
-- `supabase/schema.sql` DB 테이블 + 접근 규칙 + 이미 답사한 충무로·종로3가 데이터
-- 빌드 도구·라이브러리 없음. HTML/CSS/JS 파일 그대로 배포
+- 사이트: https://gdd-survey.vercel.app
+- 검수: https://gdd-survey.vercel.app/admin.html (팀원만)
+
+## 구성
 
 ```
 index.html  index.js   제보 화면
-admin.html  admin.js   검수 화면
-api.js                 Supabase 호출 (fetch)
-config.js              Supabase 주소와 공개 키
-style.css              공통 디자인
-supabase/schema.sql    DB 만들기
+admin.html  admin.js   검수 화면 (승인·반려·삭제, CSV 내보내기)
+api.js                 Supabase REST 호출 (fetch, 라이브러리 없음)
+config.js              Supabase 주소와 Publishable key
+style.css              공통 스타일
+supabase/schema.sql    테이블, 권한, RLS 규칙, 초기 데이터
 ```
 
----
+- 프론트: 빌드 없는 HTML/CSS/JS
+- DB: Supabase (Postgres + RLS)
+- 배포: Vercel (`main`에 push하면 자동 배포)
 
-## 1. Supabase (DB) 만들기
+## 데이터
 
-1. https://supabase.com 가입 → **New project**
-   - Region: **Northeast Asia (Seoul)** (한국 사용자라 가장 빠름)
-   - Database Password는 따로 적어두기
-2. 왼쪽 **SQL Editor** → `supabase/schema.sql` 내용을 통째로 붙여넣고 **Run**
-   → 테이블 3개(stations, routes, admins)와 기존 답사 데이터 7개가 생겨요.
-3. **Authentication → Sign In / Providers** 에서 **Allow new users to sign up 끄기**
-   → 아무나 팀원 계정을 만들지 못하게 막아요.
-4. **Authentication → Users → Add user → Create new user**
-   - 본인과 친구 이메일/비밀번호로 한 명씩. **Auto Confirm User** 체크
-5. 다시 **SQL Editor** 에서 두 사람을 팀원(검수 권한)으로 등록:
-   ```sql
-   insert into public.admins (user_id)
-   select id from auth.users where email in ('내이메일@example.com', '친구이메일@example.com');
-   ```
-6. **Project Settings → API** 에서 `Project URL` 과 `anon public` 키를 복사해 `config.js` 에 넣기
-   - anon 키는 원래 브라우저에 공개되는 키라 괜찮아요. 누가 뭘 할 수 있는지는 schema.sql의 규칙(RLS)이 정해요.
-   - **service_role 키는 절대 넣지 마세요** (모든 규칙을 무시하는 관리자 키예요).
+| 테이블 | 내용 |
+|---|---|
+| `stations` | 역 정보: 호선, 역명, 화장실 개수, 대변기 칸 수, 개찰구 안/밖, 양옆 역 |
+| `routes` | 하차 경로: 방향, 하차 칸-문, 맞은편 문, 동선 단계(JSON), 소요 시간, 비고, 상태(pending/approved/rejected) |
+| `admins` | 검수 권한이 있는 팀원 |
 
-## 2. 내 컴퓨터에서 먼저 확인
+권한: 일반 사용자는 승인된 데이터 읽기와 `pending` 제보만 가능. 승인·수정·삭제는 `admins`만.
+
+## 로컬 실행
 
 ```bash
 python -m http.server 8000
 ```
-왜: 파일을 더블클릭해서 열면(file://) 브라우저가 서버 요청을 막을 수 있어서, 간단한 로컬 서버로 열어요.
-브라우저에서 http://localhost:8000 → 제보 화면, http://localhost:8000/admin.html → 검수 화면.
+http://localhost:8000 에서 확인.
 
-## 3. GitHub에 올리기 (Git)
+## 팀원 추가
 
-Git은 코드의 변경 기록을 저장하는 도구, GitHub는 그 기록을 인터넷에 올려두는 곳이에요.
-Vercel이 GitHub에 올라온 코드를 가져가서 배포해요.
+1. Supabase → Authentication → Users → Add user (Auto Confirm 체크)
+2. SQL Editor에서:
+   ```sql
+   insert into public.admins (user_id)
+   select id from auth.users where email = '팀원이메일';
+   ```
 
-1. https://github.com 가입 → 오른쪽 위 **+ → New repository**
-   - 이름 예: `gdd-survey`, **Public/Private 아무거나**, README 추가는 체크하지 않기
-2. 이 폴더에서 터미널을 열고 한 줄씩:
+## 주의
 
-```bash
-git init
-```
-이 폴더를 Git이 기록하는 폴더로 만들어요 (처음 한 번만).
-
-```bash
-git add .
-```
-현재 폴더의 모든 파일을 "이번에 저장할 목록"에 올려요.
-
-```bash
-git commit -m "답사 메모 첫 버전"
-```
-목록에 올린 파일들을 하나의 저장 지점(커밋)으로 기록해요. `-m` 뒤는 무엇을 바꿨는지 적는 메모예요.
-
-```bash
-git branch -M main
-```
-기본 줄기 이름을 `main` 으로 맞춰요 (GitHub 기본값과 같게).
-
-```bash
-git remote add origin https://github.com/내아이디/gdd-survey.git
-```
-이 폴더와 GitHub 저장소를 연결해요. 주소는 GitHub 저장소 화면에 나와 있어요 (처음 한 번만).
-
-```bash
-git push -u origin main
-```
-기록을 GitHub에 올려요. 처음엔 GitHub 로그인 창이 뜰 수 있어요.
-
-**이후 수정할 때는** 이 세 줄만 반복하면 돼요:
-```bash
-git add .
-```
-```bash
-git commit -m "무엇을 바꿨는지"
-```
-```bash
-git push
-```
-
-## 4. Vercel로 배포
-
-1. https://vercel.com → **Continue with GitHub** 로 가입
-2. **Add New → Project** → 방금 만든 `gdd-survey` 저장소 **Import**
-3. Framework Preset: **Other**, Build Command·Output Directory는 비워두기 → **Deploy**
-4. `https://gdd-survey.vercel.app` 같은 주소가 생겨요. 이 주소를 친구와 사용자들에게 공유하면 끝.
-
-이후로는 `git push` 할 때마다 Vercel이 알아서 새 버전을 배포해요.
-
-## 5. 운영
-
-- 팀원이 **admin.html 에서 로그인한 상태로** 제보 화면을 쓰면 "팀 모드"가 되어 검수 없이 바로 반영돼요.
-- 일반 사용자 제보는 **검수 대기**로 쌓여요 → `주소/admin.html` 에서 승인·반려.
-  처음 보는 역의 제보를 승인하면, 제보자가 적은 화장실 정보로 역이 자동으로 만들어져요.
-- 내용 수정(오타 등)은 Supabase **Table Editor → routes** 에서 칸을 직접 고치면 돼요.
-- 엑셀로 받기: 검수 화면 아래 **엑셀 파일 받기**(CSV) 또는 **표로 복사**(구글 시트 붙여넣기).
-- 스팸 대비: 제보는 검수 후에만 공개, 글자 수 제한(DB 규칙), 봇용 숨은 입력칸, 같은 폰 15초 간격 제한.
-  그래도 스팸이 많아지면 Cloudflare Turnstile(무료 봇 차단) 추가를 검토.
+- `config.js`의 Publishable key는 공개용이라 커밋해도 됩니다.
+- Secret key, DB 비밀번호는 절대 커밋하지 않습니다.
