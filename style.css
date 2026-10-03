@@ -53,6 +53,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .lines button[aria-pressed="true"]{background:var(--lc);color:#fff}
 .ptoilet{text-align:left;background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45}
 .ptoilet b{font-size:14px}
+.ptoilet[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
 .ptoilet .src{color:var(--muted);font-size:11px}
 .pick{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
 .pick.doors{grid-template-columns:repeat(4,1fr)}

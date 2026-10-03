@@ -21,23 +21,25 @@ const load = (k, fallback) => { try { const v = JSON.parse(localStorage.getItem(
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch(e) {} };
 
 // 이 폰에만 남는 상태
-let S = Object.assign({station:"", line:"3", toilets:"", stalls:"", gate:"", prev:"", next:"", dir:0, draft:blankDraft()}, load(DRAFT_KEY, {}));
+let S = Object.assign({station:"", line:"3", prev:"", next:"", dir:0, toiletId:null, cGate:"", cDetail:"", cStalls:"", draft:blankDraft()}, load(DRAFT_KEY, {}));
 S.draft.steps = fixedEnds(S.draft.steps);
 let customActs = load(ACTS_KEY, []);
 let mine = load(MINE_KEY, []);           // 내가 보낸 제보 (검수 대기 표시용)
 
 // 서버 데이터
-let routes = [], stations = [];
+let routes = [], toilets = [];
 let token = null, isTeam = false, conn = "loading", lastSubmit = 0;
 let sel = null, actEdit = false;
 let timer = {start:0, acc:0, run:false, raf:0};
-let SUB = null, listLine = null, carCount = 0;   // data/subway.json (공공데이터로 만든 역·화장실 정보)
+let SUB = null, listLine = null, carCount = 0;   // data/subway.json (공공데이터로 만든 호선별 역 순서)
 
 const normName = n => { n = n.replace(/\(.*?\)/g, "").trim(); return n.endsWith("역") && n.length>=3 ? n.slice(0,-1) : n };
 const lineStations = () => SUB?.lines[S.line]?.stations || [];
 const neighbors = () => SUB?.lines[S.line]?.neighbors[S.station.trim()] || null;
-const pubToilets = () => SUB?.toilets[normName(S.station)] || [];
-const GATE = {"내부":"개찰구 내부", "외부":"개찰구 외부"};
+// 이 역의 화장실 (환승역은 화장실이 호선별로 나뉘어 있어서 이 호선 것을 앞에)
+const stationToilets = () => !S.station.trim() ? [] : toilets
+  .filter(t => normName(t.station)===normName(S.station))
+  .sort((a,b) => (b.line===String(S.line)) - (a.line===String(S.line)));
 
 const persist = () => store(DRAFT_KEY, S);
 const sameSt = (a, line, name) => String(a.line).trim()===String(line).trim() && (a.station ?? a.name ?? "").trim()===String(name).trim();
@@ -51,29 +53,23 @@ const allActs = () => BASE_ACTS.concat(customActs);
 const draftSeconds = D => (D.min==="" && D.sec==="") ? null : (parseInt(D.min)||0)*60 + (parseInt(D.sec)||0);
 
 /* ---------- 역 선택 시 자동 채우기 ---------- */
-function applyToilet(t){
-  S.stalls = String(t.male); S.gate = GATE[t.gate] || S.gate;
-  $("stalls").value = S.stalls;
-}
-// 환승역은 화장실이 호선별로 나뉘어 있어서, 이 호선 것이 있으면 그것만, 없으면 역 전체
-const lineToilets = () => { const all = pubToilets(), mine = all.filter(t => t.line===String(S.line)); return mine.length ? mine : all };
 function onStationPicked(){
   const nb = neighbors();
   const key = S.line + "|" + S.station.trim();
-  if (!nb) {                              // 목록에 없는 역: 직전 역에서 자동으로 채운 값만 비움
-    if (S.picked && S.picked !== key) { S.picked = null; Object.assign(S, {prev:"", next:"", toilets:"", stalls:"", gate:"", dir:0}); fillInputs() }
+  if (S.picked !== key) {               // 다른 역으로 바꾸면 화장실 선택을 새로
+    S.picked = key; S.toiletId = null;
+    const list = stationToilets();
+    if (list.length===1) S.toiletId = list[0].id;
+  }
+  if (!nb) {                              // 목록에 없는 역은 양옆 역을 직접 입력
+    if (S.autoNb) { S.autoNb = false; S.prev = ""; S.next = ""; S.dir = 0; fillInputs() }
     return;
   }
   if (!(nb.includes(S.prev) && (nb.includes(S.next) || (!S.next && nb.length===1)))) {
     S.prev = nb.length<=2 ? nb[0] : ""; S.next = nb.length===2 ? nb[1] : "";
     S.dir = 0;
   }
-  if (S.picked !== key) {               // 다른 역으로 바꿨으면 화장실 칸을 새로 채움
-    S.picked = key;
-    const list = lineToilets();
-    S.toilets = list.length ? String(list.length) : ""; S.stalls = ""; S.gate = "";
-    if (list.length===1) applyToilet(list[0]);
-  }
+  S.autoNb = true;
   fillInputs();
 }
 
@@ -87,7 +83,7 @@ function renderStatic(){
   fillInputs();
 }
 function fillInputs(){
-  ["station","toilets","stalls","prev","next"].forEach(k => $(k).value = S[k]||"");
+  ["station","prev","next","cDetail","cStalls"].forEach(k => $(k).value = S[k]||"");
   ["opp","min","sec","note"].forEach(k => $(k).value = S.draft[k]||"");
 }
 
@@ -105,10 +101,6 @@ function render(){
   $("save").disabled = conn==="loading" || conn==="config";
   $("saveHint").textContent = isTeam ? "팀 모드라 검수 없이 바로 반영돼요." : "등록한 경로는 팀이 확인한 뒤 앱에 반영돼요.";
 
-  // 등록된 역 바로가기
-  $("known").hidden = !stations.length;
-  $("known").innerHTML = stations.map((s,i)=>`<button data-k="${i}" class="${sameSt(s,S.line,S.station)?"on":""}">${esc(s.line)}호선 ${esc(s.name)}</button>`).join("");
-
   // 호선·역 목록
   document.querySelectorAll("#linePick button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.line===String(S.line)));
   if (listLine !== S.line + !!SUB) {
@@ -122,14 +114,17 @@ function render(){
     if (S.draft.car > cars) S.draft.car = null;
   }
 
-  // 공공데이터 화장실 정보
-  const pt = pubToilets();
-  $("pubToilets").hidden = !pt.length;
-  $("pubToilets").innerHTML = pt.map((t,i)=>`<button class="ptoilet" data-t="${i}">
-    <b>${t.line}호선 쪽 · ${esc(t.floor)} · ${esc(GATE[t.gate]?.replace("개찰구 내부","개찰구 안").replace("개찰구 외부","개찰구 밖") || "개찰구 정보 없음")}</b><br>
-    ${esc([t.exit && t.exit+"번 출구", t.detail].filter(Boolean).join(" · "))}<br>
-    남자 대변기 ${t.male} · 여자 ${t.female}</button>`).join("")
-    + (pt.length ? `<p class="sub">공공데이터(서울교통공사) 기준이에요. 실제와 다르면 고쳐줘. 카드를 누르면 아래 칸에 채워져요.</p>` : "");
+  // 목적지 화장실
+  const tl = stationToilets();
+  $("toiletPick").innerHTML = !S.station.trim() ? '<span class="sub">역을 먼저 골라줘.</span>'
+    : tl.map(t => `<button class="ptoilet" data-tid="${t.id}" aria-pressed="${S.toiletId===t.id}">
+        <b>${esc(t.line)}호선 쪽 · ${esc(t.floor||"")} · ${esc(gateShort(t.gate))}</b><br>
+        ${esc([t.exit_no && t.exit_no+"번 출구", t.detail].filter(Boolean).join(" · "))}<br>
+        남자 대변기 ${t.male_stalls ?? "?"} · 여자 ${t.female_stalls ?? "?"}${t.source==="team" ? " · 팀 확인" : ""}</button>`).join("")
+      + (tl.length ? "" : '<span class="sub">이 역은 공공데이터에 화장실 정보가 없어. 아래에 직접 적어줘.</span>')
+      + `<button class="ptoilet" data-tid="custom" aria-pressed="${S.toiletId==="custom"}"><b>+ 목록에 없는 화장실</b></button>`;
+  $("customToilet").hidden = S.toiletId!=="custom";
+  document.querySelectorAll("#cGate button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===S.cGate));
 
   // 양옆 역: 목록에 있는 역이면 자동, 갈림길이면 고르기, 목록에 없으면 직접 입력
   const nb = neighbors();
@@ -137,7 +132,6 @@ function render(){
   $("nbRow").hidden = !(nb && nb.length>2);
   if (nb && nb.length>2) $("nbPick").innerHTML = nb.map(n=>`<button data-nb="${esc(n)}" class="${n===S.prev||n===S.next?"on":""}">${esc(n)}</button>`).join("");
 
-  document.querySelectorAll("#gate button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===S.gate));
   document.querySelectorAll("#dirSeg button").forEach(b=>{
     const from = +b.dataset.d===0 ? S.prev : S.next;
     b.setAttribute("aria-pressed", +b.dataset.d===d);
@@ -178,6 +172,7 @@ function render(){
   const list = hereRoutes(d), pend = isTeam ? [] : hereMine(d);
   const item = (r, label) => `
     <div class="item"><div class="t"><strong>${doorText(r)||"?-?"} 하차${r.seconds!=null?" · "+secText(r.seconds):""}</strong> ${label}
+<span class="meta">→ ${esc(toiletLabel(r, toilets))}</span>
 ${esc(r.steps.map(stepText).join(" → "))}${r.note?"\n"+esc("비고: "+r.note):""}${r.nickname?`\n<span class="meta">${esc(r.nickname)} 제보</span>`:""}</div></div>`;
   const html = list.map(r => item(r, r.status==="pending" ? '<span class="pill pending">검수 대기</span>' : r.source==="team" ? '<span class="pill team">팀 답사</span>' : ""))
     .concat(pend.map(r => item(r, '<span class="pill pending">내 제보 · 검수 대기</span>')));
@@ -189,8 +184,9 @@ ${esc(r.steps.map(stepText).join(" → "))}${r.note?"\n"+esc("비고: "+r.note):
 /* ---------- 서버 ---------- */
 async function refresh(){
   try {
-    const [st, rt] = await Promise.all([API.stations(token), isTeam ? API.allRoutes(token) : API.approvedRoutes()]);
-    stations = st;
+    const [tl, rt] = await Promise.all([API.toilets(), isTeam ? API.allRoutes(token) : API.approvedRoutes()]);
+    toilets = tl;
+    if (S.picked && S.toiletId==null) { const l = stationToilets(); if (l.length===1) S.toiletId = l[0].id }
     routes = rt.filter(r => r.status!=="rejected" && Array.isArray(r.steps))
       .sort((a,b)=>a.created_at.localeCompare(b.created_at));
     // 승인되어 공개된 내 제보는 대기 목록에서 뺌
@@ -214,15 +210,17 @@ async function init(){
 }
 
 /* ---------- 입력 이벤트 ---------- */
-["toilets","stalls","prev","next"].forEach(k => $(k).addEventListener("input", e => { S[k]=e.target.value; render() }));
+["prev","next"].forEach(k => $(k).addEventListener("input", e => { S[k]=e.target.value; render() }));
+["cDetail","cStalls"].forEach(k => $(k).addEventListener("input", e => { S[k]=e.target.value; persist() }));
+$("toiletPick").addEventListener("click", e => {
+  const b=e.target.closest("[data-tid]"); if(!b) return;
+  S.toiletId = b.dataset.tid==="custom" ? "custom" : +b.dataset.tid; render();
+});
+$("cGate").addEventListener("click", e => { const b=e.target.closest("button"); if(!b) return; S.cGate = S.cGate===b.dataset.v ? "" : b.dataset.v; render() });
 $("station").addEventListener("input", e => { S.station=e.target.value; onStationPicked(); render() });
 $("linePick").addEventListener("click", e => {
   const b=e.target.closest("button"); if(!b) return;
   S.line=b.dataset.line; onStationPicked(); render();
-});
-$("pubToilets").addEventListener("click", e => {
-  const b=e.target.closest("[data-t]"); if(!b) return;
-  applyToilet(pubToilets()[+b.dataset.t]); render(); toast("화장실 정보를 채웠어");
 });
 $("nbPick").addEventListener("click", e => {
   const b=e.target.closest("[data-nb]"); if(!b) return;
@@ -231,15 +229,6 @@ $("nbPick").addEventListener("click", e => {
   else if (!S.prev) S.prev=n; else if (!S.next) S.next=n; else { S.prev=S.next; S.next=n }
   render();
 });
-$("known").addEventListener("click", e => {
-  const b=e.target.closest("button"); if(!b) return;
-  const s=stations[+b.dataset.k];
-  Object.assign(S, {station:s.name, line:s.line, toilets:s.toilets??"", stalls:s.stalls??"", gate:s.gate||"",
-    prev:s.prev_station||"", next:s.next_station||""});
-  S.picked = s.line + "|" + s.name;
-  sel=null; fillInputs(); render();
-});
-$("gate").addEventListener("click", e => { const b=e.target.closest("button"); if(!b) return; S.gate = S.gate===b.dataset.v ? "" : b.dataset.v; render() });
 $("dirSeg").addEventListener("click", e => { const b=e.target.closest("button"); if(!b) return; S.dir=+b.dataset.d; render() });
 $("carPick").addEventListener("click", e => { const b=e.target.closest("button"); if(b){ S.draft.car=+b.dataset.car; render() } });
 $("doorPick").addEventListener("click", e => { const b=e.target.closest("button"); if(b){ S.draft.door=+b.dataset.door; render() } });
@@ -319,6 +308,9 @@ $("save").addEventListener("click", async () => {
   if (!S.station.trim() || !String(S.line).trim()){ toast("역 이름이랑 호선을 먼저 적어줘"); return }
   const nb = neighbors(), terminal = nb && nb.length===1;
   if (!S.prev.trim() || (!S.next.trim() && !terminal)){ toast("양옆 역을 정해줘. 방향 구분에 필요해"); return }
+  if (S.toiletId==null){ toast("어느 화장실로 가는 경로인지 골라줘"); return }
+  const custom = S.toiletId==="custom";
+  if (custom && (!S.cGate || !S.cDetail.trim())){ toast("목록에 없는 화장실은 개찰구 안/밖이랑 위치를 적어줘"); return }
   if (!D.car || !D.door){ toast("하차 문(칸, 문)을 골라줘"); return }
   if (D.steps.length<3){ toast("하차와 도착 사이에 동선을 한 단계 이상 넣어줘"); return }
   if (!isTeam && Date.now()-lastSubmit < COOLDOWN_MS){ toast("조금만 있다가 다시 등록해줘"); return }
@@ -327,7 +319,8 @@ $("save").addEventListener("click", async () => {
   const row = {
     line:String(S.line).trim(), station:S.station.trim(), dir:S.dir, from_station:from.trim(), to_station:to.trim(),
     car:D.car, door:D.door, opp_door:D.opp.trim()||null, steps:clone(D.steps), seconds:draftSeconds(D),
-    note:D.note.trim()||null, toilets:intOrNull(S.toilets), stalls:intOrNull(S.stalls), gate:S.gate||null,
+    note:D.note.trim()||null, toilet_id: custom ? null : S.toiletId,
+    gate: custom ? S.cGate : null, toilet_detail: custom ? S.cDetail.trim() : null, stalls: custom ? intOrNull(S.cStalls) : null,
     nickname:$("nickname").value.trim()||null,
     source: isTeam ? "team" : "user", status: isTeam ? "approved" : "pending",
   };
@@ -337,13 +330,7 @@ $("save").addEventListener("click", async () => {
   try {
     token = await API.token();
     await API.submitRoute(row, isTeam ? token : null);
-    if (isTeam) {
-      const [p,n] = S.dir===0 ? [row.from_station,row.to_station] : [row.to_station,row.from_station];
-      await API.upsertStation({line:row.line, name:row.station, toilets:row.toilets, stalls:row.stalls, gate:row.gate,
-        prev_station:p, next_station:n, updated_at:new Date().toISOString()}, token);
-    } else {
-      mine.push({...row, at:Date.now()}); store(MINE_KEY, mine);
-    }
+    if (!isTeam) { mine.push({...row, at:Date.now()}); store(MINE_KEY, mine) }
     lastSubmit = Date.now();
     toast(isTeam ? "등록 완료! 바로 반영됐어" : "고마워! 팀 확인 후 반영할게");
     S.draft=blankDraft(); sel=null; resetWatch(); fillInputs();

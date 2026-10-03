@@ -91,11 +91,23 @@ for r in read("화장실_서울교통공사_9호선2-3단계_20260131.csv"):
     })
 
 out = {
-    "source": "서울교통공사 역간거리(2024-08-10), 역사공중화장실정보(2026-02-12), 9호선2·3단계 화장실정보(2026-01-31). 공공누리 1유형",
+    "source": "서울교통공사 역간거리(2024-08-10). 공공누리 1유형",
     "lines": lines,
-    "toilets": toilets,
 }
 (ROOT / "data" / "subway.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+# 화장실은 DB(toilets 테이블)에 넣음: 답사하면서 칸 수 등을 고칠 수 있게
+q = lambda v: "null" if v in ("", None) else "'" + str(v).replace("'", "''") + "'"
+GATE = {"내부": "개찰구 내부", "외부": "개찰구 외부"}
+rows = []
+for name, ts in sorted(toilets.items()):
+    for t in ts:
+        rows.append(f"({q(t['line'])},{q(name)},{q(t['floor'])},{q(GATE.get(t['gate']))},{q(t['exit'])},{q(t['detail'])},{t['male']},{t['female']})")
+sql = ("-- 공공데이터 화장실 (tools/build_data.py 로 생성). 002_toilets.sql 실행 후 한 번만 실행\n"
+       "insert into public.toilets (line, station, floor, gate, exit_no, detail, male_stalls, female_stalls) values\n"
+       + ",\n".join(rows) + ";\n")
+(ROOT / "data" / "toilets_seed.sql").write_text(sql, encoding="utf-8")   # 이미 DB에 넣었으면 다시 실행하지 말 것
+print("화장실:", len(rows))
 
 all_names = {norm(s) for l in lines.values() for s in l["stations"]}
 print("역:", sum(len(l["stations"]) for l in lines.values()), "화장실 있는 역:", len(toilets),

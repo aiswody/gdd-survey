@@ -20,7 +20,7 @@ const API = {
   },
 
   // 공개 데이터
-  stations(token) { return this.req("/rest/v1/stations?select=*&order=line,name", { token }) },
+  toilets() { return this.req("/rest/v1/toilets?select=*&order=station,line,floor") },
   approvedRoutes(token) { return this.req("/rest/v1/routes?select=*&status=eq.approved&order=created_at", { token }) },
   submitRoute(row, token) { return this.req("/rest/v1/routes", { method: "POST", body: row, token, prefer: "return=minimal" }) },
 
@@ -33,11 +33,6 @@ const API = {
     });
   },
   deleteRoute(id, token) { return this.req(`/rest/v1/routes?id=eq.${id}`, { method: "DELETE", token }) },
-  upsertStation(row, token) {
-    return this.req("/rest/v1/stations?on_conflict=line,name", {
-      method: "POST", body: row, token, prefer: "resolution=merge-duplicates,return=minimal",
-    });
-  },
   async isAdmin(token) {
     const rows = await this.req("/rest/v1/admins?select=user_id", { token });
     return rows.length > 0;
@@ -81,6 +76,14 @@ const secText = sec => {
   const m = Math.floor(sec / 60), s = sec % 60;
   return m ? `${m}분${s ? " " + s + "초" : ""}` : `${s}초`;
 };
+const gateShort = g => g === "개찰구 내부" ? "개찰구 안" : g === "개찰구 외부" ? "개찰구 밖" : "개찰구 정보 없음";
+// 경로가 가리키는 화장실 한 줄 설명
+function toiletLabel(r, toilets) {
+  const t = r.toilet_id && toilets.find(x => x.id === r.toilet_id);
+  if (t) return [t.floor, gateShort(t.gate), t.exit_no && t.exit_no + "번 출구", t.detail].filter(Boolean).join(" · ");
+  if (r.toilet_detail) return `직접 입력 · ${gateShort(r.gate)} · ${r.toilet_detail}`;
+  return "화장실 미지정";
+}
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function toast(msg) {
   const t = document.getElementById("toast");
