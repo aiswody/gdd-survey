@@ -7,7 +7,7 @@
 <meta name="description" content="지하철에서 몇 번 칸 몇 번 문으로 내리면 화장실이 제일 가까운지, 같이 기록해 주세요.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <div class="wrap">
@@ -21,10 +21,10 @@
   <section class="card">
     <h2>역</h2>
     <div class="known" id="known" hidden></div>
-    <div class="row">
-      <input id="station" class="grow" placeholder="역 이름 (예: 충무로)" autocomplete="off">
-      <input id="line" class="num" inputmode="numeric" placeholder="호선">
-    </div>
+    <div class="lines" id="linePick"></div>
+    <input id="station" list="stationList" placeholder="역 이름 검색 (예: 충무로)" autocomplete="off">
+    <datalist id="stationList"></datalist>
+    <div class="list" id="pubToilets" hidden></div>
     <div class="row">
       <span class="label">화장실</span>
       <input id="toilets" class="num" inputmode="numeric" placeholder="개수">
@@ -41,7 +41,11 @@
   <!-- 방향 -->
   <section class="card">
     <h2>진행 방향</h2>
-    <div class="row">
+    <div class="row" id="nbRow" hidden>
+      <span class="label">갈림길이라 양옆 역을 골라줘</span>
+      <div class="mods" id="nbPick"></div>
+    </div>
+    <div class="row" id="manualDir">
       <input id="prev" class="grow" placeholder="한쪽 옆 역" autocomplete="off">
       <input id="next" class="grow" placeholder="반대쪽 옆 역" autocomplete="off">
     </div>
@@ -133,7 +137,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script src="config.js"></script>
-<script src="api.js"></script>
-<script src="index.js"></script>
+<script src="api.js?v=2"></script>
+<script src="index.js?v=2"></script>
 </body>
 </html>

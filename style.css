@@ -48,6 +48,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .known{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
 .known button{flex:none;font-size:13px;padding:6px 12px;border-radius:999px;background:var(--card);border:1.5px solid var(--line)}
 .known button.on{border-color:var(--accent);color:var(--accent)}
+.lines{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
+.lines button{padding:9px 0;font-weight:700;border:2px solid var(--lc);background:var(--card);color:var(--lc);border-radius:999px;font-variant-numeric:tabular-nums}
+.lines button[aria-pressed="true"]{background:var(--lc);color:#fff}
+.ptoilet{text-align:left;background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45}
+.ptoilet b{font-size:14px}
+.ptoilet .src{color:var(--muted);font-size:11px}
 .pick{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
 .pick.doors{grid-template-columns:repeat(4,1fr)}
 .pick button{padding:9px 0;font-variant-numeric:tabular-nums;font-weight:500}

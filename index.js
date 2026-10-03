@@ -2,7 +2,10 @@ const $ = id => document.getElementById(id);
 const BASE_ACTS = ["계단","에스컬레이터","에스컬 중간에 내림","엘리베이터","무빙워크","직진","개찰구","좌회전","우회전","유턴"];
 const PRE = ["전방","왼쪽","오른쪽","뒤쪽"];
 const SIGN = ["위 표지판","왼쪽 벽 표지판","오른쪽 벽 표지판","정면 표지판","바닥 표지판","표지판 없음"];
-const CARS = 10, DOORS = 4, COOLDOWN_MS = 15000;
+const DOORS = 4, COOLDOWN_MS = 15000;
+// 호선별 칸 수와 노선색 (1~4호선 10량, 5~7호선 8량, 8·9호선 6량)
+const LINES = {1:[10,"#0052A4"], 2:[10,"#00A84D"], 3:[10,"#EF7C1C"], 4:[10,"#00A5DE"], 5:[8,"#996CAC"],
+  6:[8,"#CD7C2F"], 7:[8,"#747F00"], 8:[6,"#E6186C"], 9:[6,"#BDB092"]};
 const DRAFT_KEY = "gdd-draft-v1", ACTS_KEY = "gdd-custom-acts", MINE_KEY = "gdd-mine-v1", NICK_KEY = "gdd-nickname";
 
 // 동선은 항상 하차로 시작해서 도착으로 끝남. 사이 단계만 버튼으로 추가
@@ -28,6 +31,13 @@ let routes = [], stations = [];
 let token = null, isTeam = false, conn = "loading", lastSubmit = 0;
 let sel = null, actEdit = false;
 let timer = {start:0, acc:0, run:false, raf:0};
+let SUB = null, listLine = null, carCount = 0;   // data/subway.json (공공데이터로 만든 역·화장실 정보)
+
+const normName = n => { n = n.replace(/\(.*?\)/g, "").trim(); return n.endsWith("역") && n.length>=3 ? n.slice(0,-1) : n };
+const lineStations = () => SUB?.lines[S.line]?.stations || [];
+const neighbors = () => SUB?.lines[S.line]?.neighbors[S.station.trim()] || null;
+const pubToilets = () => SUB?.toilets[normName(S.station)] || [];
+const GATE = {"내부":"개찰구 내부", "외부":"개찰구 외부"};
 
 const persist = () => store(DRAFT_KEY, S);
 const sameSt = (a, line, name) => String(a.line).trim()===String(line).trim() && (a.station ?? a.name ?? "").trim()===String(name).trim();
@@ -40,9 +50,36 @@ const hereMine = d => mine.filter(r => sameSt(r, S.line, S.station) && routeDir(
 const allActs = () => BASE_ACTS.concat(customActs);
 const draftSeconds = D => (D.min==="" && D.sec==="") ? null : (parseInt(D.min)||0)*60 + (parseInt(D.sec)||0);
 
+/* ---------- 역 선택 시 자동 채우기 ---------- */
+function applyToilet(t){
+  S.stalls = String(t.male); S.gate = GATE[t.gate] || S.gate;
+  $("stalls").value = S.stalls;
+}
+// 환승역은 화장실이 호선별로 나뉘어 있어서, 이 호선 것이 있으면 그것만, 없으면 역 전체
+const lineToilets = () => { const all = pubToilets(), mine = all.filter(t => t.line===String(S.line)); return mine.length ? mine : all };
+function onStationPicked(){
+  const nb = neighbors();
+  const key = S.line + "|" + S.station.trim();
+  if (!nb) {                              // 목록에 없는 역: 직전 역에서 자동으로 채운 값만 비움
+    if (S.picked && S.picked !== key) { S.picked = null; Object.assign(S, {prev:"", next:"", toilets:"", stalls:"", gate:"", dir:0}); fillInputs() }
+    return;
+  }
+  if (!(nb.includes(S.prev) && (nb.includes(S.next) || (!S.next && nb.length===1)))) {
+    S.prev = nb.length<=2 ? nb[0] : ""; S.next = nb.length===2 ? nb[1] : "";
+    S.dir = 0;
+  }
+  if (S.picked !== key) {               // 다른 역으로 바꿨으면 화장실 칸을 새로 채움
+    S.picked = key;
+    const list = lineToilets();
+    S.toilets = list.length ? String(list.length) : ""; S.stalls = ""; S.gate = "";
+    if (list.length===1) applyToilet(list[0]);
+  }
+  fillInputs();
+}
+
 /* ---------- 렌더 ---------- */
 function renderStatic(){
-  $("carPick").innerHTML = Array.from({length:CARS},(_,i)=>`<button data-car="${i+1}">${i+1}</button>`).join("");
+  $("linePick").innerHTML = Object.entries(LINES).map(([n,[,c]]) => `<button data-line="${n}" style="--lc:${c}">${n}</button>`).join("");
   $("doorPick").innerHTML = Array.from({length:DOORS},(_,i)=>`<button data-door="${i+1}">${i+1}번 문</button>`).join("");
   $("preMods").innerHTML = PRE.map(p=>`<button data-pre="${p}">${p}</button>`).join("");
   $("signMods").innerHTML = SIGN.map(m=>`<button data-mod="${m}">${m}</button>`).join("");
@@ -50,7 +87,7 @@ function renderStatic(){
   fillInputs();
 }
 function fillInputs(){
-  ["station","line","toilets","stalls","prev","next"].forEach(k => $(k).value = S[k]||"");
+  ["station","toilets","stalls","prev","next"].forEach(k => $(k).value = S[k]||"");
   ["opp","min","sec","note"].forEach(k => $(k).value = S.draft[k]||"");
 }
 
@@ -72,8 +109,41 @@ function render(){
   $("known").hidden = !stations.length;
   $("known").innerHTML = stations.map((s,i)=>`<button data-k="${i}" class="${sameSt(s,S.line,S.station)?"on":""}">${esc(s.line)}호선 ${esc(s.name)}</button>`).join("");
 
+  // 호선·역 목록
+  document.querySelectorAll("#linePick button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.line===String(S.line)));
+  if (listLine !== S.line + !!SUB) {
+    listLine = S.line + !!SUB;
+    $("stationList").innerHTML = lineStations().map(n=>`<option value="${esc(n)}">`).join("");
+  }
+  const cars = (LINES[S.line]||[10])[0];
+  if (carCount !== cars) {
+    carCount = cars;
+    $("carPick").innerHTML = Array.from({length:cars},(_,i)=>`<button data-car="${i+1}">${i+1}</button>`).join("");
+    if (S.draft.car > cars) S.draft.car = null;
+  }
+
+  // 공공데이터 화장실 정보
+  const pt = pubToilets();
+  $("pubToilets").hidden = !pt.length;
+  $("pubToilets").innerHTML = pt.map((t,i)=>`<button class="ptoilet" data-t="${i}">
+    <b>${t.line}호선 쪽 · ${esc(t.floor)} · ${esc(GATE[t.gate]?.replace("개찰구 내부","개찰구 안").replace("개찰구 외부","개찰구 밖") || "개찰구 정보 없음")}</b><br>
+    ${esc([t.exit && t.exit+"번 출구", t.detail].filter(Boolean).join(" · "))}<br>
+    남자 대변기 ${t.male} · 여자 ${t.female}</button>`).join("")
+    + (pt.length ? `<p class="sub">공공데이터(서울교통공사) 기준이에요. 실제와 다르면 고쳐줘. 카드를 누르면 아래 칸에 채워져요.</p>` : "");
+
+  // 양옆 역: 목록에 있는 역이면 자동, 갈림길이면 고르기, 목록에 없으면 직접 입력
+  const nb = neighbors();
+  $("manualDir").hidden = !!nb;
+  $("nbRow").hidden = !(nb && nb.length>2);
+  if (nb && nb.length>2) $("nbPick").innerHTML = nb.map(n=>`<button data-nb="${esc(n)}" class="${n===S.prev||n===S.next?"on":""}">${esc(n)}</button>`).join("");
+
   document.querySelectorAll("#gate button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===S.gate));
-  document.querySelectorAll("#dirSeg button").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.d===d));
+  document.querySelectorAll("#dirSeg button").forEach(b=>{
+    const from = +b.dataset.d===0 ? S.prev : S.next;
+    b.setAttribute("aria-pressed", +b.dataset.d===d);
+    b.textContent = from ? `${from}에서 오는 열차` : (+b.dataset.d===0 ? "방향 1" : "방향 2 (반대)");
+    b.disabled = !!nb && !from;
+  });
   const [a,b] = dirStations(d);
   $("dirLine").innerHTML = `${esc(a||"○○")} → <b>${esc(S.station||"○○")}</b> → ${esc(b||"○○")}`;
   $("editorTitle").textContent = `방향 ${d+1} · 새 경로`;
@@ -137,18 +207,36 @@ async function refresh(){
 }
 async function init(){
   if (!window.CONFIG || CONFIG.SUPABASE_ANON_KEY.startsWith("YOUR-")) { conn="config"; render(); return }
+  fetch("data/subway.json").then(r=>r.json()).then(j=>{ SUB=j; onStationPicked(); render() }).catch(()=>{});
   token = await API.token();
   if (token) { try { isTeam = await API.isAdmin(token) } catch(e) { isTeam = false } }
   await refresh();
 }
 
 /* ---------- 입력 이벤트 ---------- */
-["station","line","toilets","stalls","prev","next"].forEach(k => $(k).addEventListener("input", e => { S[k]=e.target.value; render() }));
+["toilets","stalls","prev","next"].forEach(k => $(k).addEventListener("input", e => { S[k]=e.target.value; render() }));
+$("station").addEventListener("input", e => { S.station=e.target.value; onStationPicked(); render() });
+$("linePick").addEventListener("click", e => {
+  const b=e.target.closest("button"); if(!b) return;
+  S.line=b.dataset.line; onStationPicked(); render();
+});
+$("pubToilets").addEventListener("click", e => {
+  const b=e.target.closest("[data-t]"); if(!b) return;
+  applyToilet(pubToilets()[+b.dataset.t]); render(); toast("화장실 정보를 채웠어");
+});
+$("nbPick").addEventListener("click", e => {
+  const b=e.target.closest("[data-nb]"); if(!b) return;
+  const n=b.dataset.nb;
+  if (S.prev===n) S.prev=""; else if (S.next===n) S.next="";
+  else if (!S.prev) S.prev=n; else if (!S.next) S.next=n; else { S.prev=S.next; S.next=n }
+  render();
+});
 $("known").addEventListener("click", e => {
   const b=e.target.closest("button"); if(!b) return;
   const s=stations[+b.dataset.k];
   Object.assign(S, {station:s.name, line:s.line, toilets:s.toilets??"", stalls:s.stalls??"", gate:s.gate||"",
     prev:s.prev_station||"", next:s.next_station||""});
+  S.picked = s.line + "|" + s.name;
   sel=null; fillInputs(); render();
 });
 $("gate").addEventListener("click", e => { const b=e.target.closest("button"); if(!b) return; S.gate = S.gate===b.dataset.v ? "" : b.dataset.v; render() });
@@ -229,7 +317,8 @@ $("save").addEventListener("click", async () => {
   const D=S.draft;
   if ($("website").value) return;                                   // 스팸 봇 걸러내기
   if (!S.station.trim() || !String(S.line).trim()){ toast("역 이름이랑 호선을 먼저 적어줘"); return }
-  if (!S.prev.trim() || !S.next.trim()){ toast("양옆 역을 적어줘. 방향 구분에 필요해"); return }
+  const nb = neighbors(), terminal = nb && nb.length===1;
+  if (!S.prev.trim() || (!S.next.trim() && !terminal)){ toast("양옆 역을 정해줘. 방향 구분에 필요해"); return }
   if (!D.car || !D.door){ toast("하차 문(칸, 문)을 골라줘"); return }
   if (D.steps.length<3){ toast("하차와 도착 사이에 동선을 한 단계 이상 넣어줘"); return }
   if (!isTeam && Date.now()-lastSubmit < COOLDOWN_MS){ toast("조금만 있다가 다시 등록해줘"); return }

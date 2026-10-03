@@ -31,6 +31,23 @@ supabase/schema.sql    테이블, 권한, RLS 규칙, 초기 데이터
 
 권한: 일반 사용자는 승인된 데이터 읽기와 `pending` 제보만 가능. 승인·수정·삭제는 `admins`만.
 
+## 공공데이터 (`data/`)
+
+역 선택, 양옆 역 자동 입력, 호선별 칸 수, 화장실 정보 미리 채우기에 사용.
+
+| 파일 | 출처 |
+|---|---|
+| `raw/역간거리_*.csv` | [서울교통공사 역간거리 및 소요시간](https://data.seoul.go.kr/dataList/OA-12034/S/1/datasetView.do) (1~8호선 역 순서) |
+| `raw/화장실_*_1-8호선_*.csv` | [서울교통공사 역사공중화장실정보](https://www.data.go.kr/data/15044453/fileData.do) |
+| `raw/화장실_*_9호선2-3단계_*.csv` | [서울교통공사 9호선2·3단계 역사공중화장실정보](https://www.data.go.kr/data/15120811/fileData.do) |
+
+9호선 역 순서와 칸 수는 `tools/build_data.py`에 직접 적어둠. CSV를 새로 받으면 `data/raw`에 넣고:
+
+```bash
+python tools/build_data.py
+```
+→ `data/subway.json` 갱신. 출처: 서울교통공사, 공공누리 1유형.
+
 ## 로컬 실행
 
 ```bash
