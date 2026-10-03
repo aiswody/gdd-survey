@@ -85,6 +85,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .clock{font-family:var(--display);font-size:34px;font-variant-numeric:tabular-nums;min-width:120px}
 .watch .go{background:var(--ok);color:#fff;font-weight:700;padding:12px 18px;border-radius:14px}
 .watch .go.run{background:var(--accent)}
+.watch.sticky{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);padding-block:8px;margin-block:-8px;border-bottom:1px solid var(--line)}
+.manual-time{gap:6px}
+.manual-time input.num{width:52px;padding:8px 6px}
+.modgroup{display:flex;gap:8px;align-items:flex-start}
+.modtag{flex:none;width:44px;font-size:12px;font-weight:700;color:var(--muted);padding-top:8px}
+.modgroup .mods{flex:1;min-width:0}
+.modgroup + .modgroup{border-top:1px dashed var(--line);padding-top:8px}
+.acts .sep{grid-column:1/-1;font-size:12px;color:var(--muted);padding-top:4px}
+.acts .minor{font-size:13px;padding:10px 4px;color:var(--muted)}
 .list{display:flex;flex-direction:column;gap:8px}
 .item{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
 .item .t{flex:1;min-width:0;font-size:13px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
