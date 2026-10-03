@@ -1,17 +1,25 @@
 const $ = id => document.getElementById(id);
-const BASE_ACTS = ["하차","계단","에스컬레이터","에스컬 중간에 내림","엘리베이터","무빙워크","직진","개찰구","좌회전","우회전","유턴","도착"];
+const BASE_ACTS = ["계단","에스컬레이터","에스컬 중간에 내림","엘리베이터","무빙워크","직진","개찰구","좌회전","우회전","유턴"];
 const PRE = ["전방","왼쪽","오른쪽","뒤쪽"];
 const SIGN = ["위 표지판","왼쪽 벽 표지판","오른쪽 벽 표지판","정면 표지판","바닥 표지판","표지판 없음"];
 const CARS = 10, DOORS = 4, COOLDOWN_MS = 15000;
 const DRAFT_KEY = "gdd-draft-v1", ACTS_KEY = "gdd-custom-acts", MINE_KEY = "gdd-mine-v1", NICK_KEY = "gdd-nickname";
 
-const blankDraft = () => ({car:null, door:null, opp:"", steps:[], min:"", sec:"", note:""});
+// 동선은 항상 하차로 시작해서 도착으로 끝남. 사이 단계만 버튼으로 추가
+const fixedEnds = steps => {
+  const mid = (steps||[]).filter(s => s.a!=="하차" && s.a!=="도착");
+  const first = (steps||[]).find(s => s.a==="하차") || {a:"하차", pre:"", mods:[]};
+  const last = (steps||[]).find(s => s.a==="도착") || {a:"도착", pre:"", mods:[]};
+  return [first, ...mid, last];
+};
+const blankDraft = () => ({car:null, door:null, opp:"", steps:fixedEnds([]), min:"", sec:"", note:""});
 const clone = o => JSON.parse(JSON.stringify(o));
 const load = (k, fallback) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback } catch(e) { return fallback } };
 const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch(e) {} };
 
 // 이 폰에만 남는 상태
 let S = Object.assign({station:"", line:"3", toilets:"", stalls:"", gate:"", prev:"", next:"", dir:0, draft:blankDraft()}, load(DRAFT_KEY, {}));
+S.draft.steps = fixedEnds(S.draft.steps);
 let customActs = load(ACTS_KEY, []);
 let mine = load(MINE_KEY, []);           // 내가 보낸 제보 (검수 대기 표시용)
 
@@ -29,28 +37,8 @@ const routeDir = r => r.from_station && r.from_station===S.prev.trim() ? 0
   : r.from_station && r.from_station===S.next.trim() ? 1 : r.dir;
 const hereRoutes = d => routes.filter(r => sameSt(r, S.line, S.station) && routeDir(r)===d);
 const hereMine = d => mine.filter(r => sameSt(r, S.line, S.station) && routeDir(r)===d);
-const allActs = () => BASE_ACTS.slice(0,-1).concat(customActs, ["도착"]);
+const allActs = () => BASE_ACTS.concat(customActs);
 const draftSeconds = D => (D.min==="" && D.sec==="") ? null : (parseInt(D.min)||0)*60 + (parseInt(D.sec)||0);
-
-/* ---------- 텍스트 ---------- */
-function routeBlock(r, i){
-  const lines = [`- 경로 ${i+1} (${doorText(r)||"?-?"} 하차)${r.opp_door ? " 반대 "+r.opp_door : ""}`];
-  lines.push(`- 동선 : ${r.steps.map(stepText).join(" -> ")}`);
-  if (r.seconds!=null) lines.push(`- 소요시간 : ${secText(r.seconds)}`);
-  if ((r.note||"").trim()) lines.push(`- 비고 : ${r.note.trim()}`);
-  return lines.join("\n");
-}
-function stationText(){
-  const head = `${S.station||"○○"}(${S.line||"?"}호선)` +
-    (S.toilets ? ` ${S.toilets}개` : "") + (S.stalls ? ` / ${S.stalls}칸` : "") + (S.gate ? ` / ${S.gate}` : "");
-  const parts = [head];
-  [0,1].forEach(d => {
-    const [a,b] = dirStations(d);
-    parts.push(`${d+1}. ${a||"○○"} -> ${S.station||"○○"} -> ${b||"○○"}`);
-    hereRoutes(d).forEach((r,i) => parts.push(routeBlock(r,i)));
-  });
-  return parts.join("\n\n");
-}
 
 /* ---------- 렌더 ---------- */
 function renderStatic(){
@@ -96,12 +84,12 @@ function render(){
 
   // 동선
   if (sel!=null && sel>=D.steps.length) sel=null;
-  const cur = sel!=null ? sel : D.steps.length-1;
+  const cur = sel!=null ? sel : Math.max(0, D.steps.length-2);
   $("strip").innerHTML = D.steps.length
     ? D.steps.map((s,i)=>(i?'<span class="arrow">→</span>':'')+
         `<button class="step ${s.a==="하차"?"s-start":s.a==="도착"?"s-end":""}" data-i="${i}" aria-pressed="${i===cur}">${esc(s.pre?s.pre+" ":"")}${esc(s.a)}${s.mods.length?` <small>(${esc(s.mods.join(", "))})</small>`:""}</button>`).join("")
-    : '<span class="empty">아래 버튼을 누르면 여기에 쌓여요. 보통 "하차"부터.</span>';
-  $("target").innerHTML = D.steps.length ? `붙일 대상: <b>${cur+1}. ${esc(D.steps[cur].a)}</b> (단계를 눌러서 바꾸기)` : "";
+    : '';
+  $("target").innerHTML = D.steps.length ? `붙일 대상: <b>${esc(D.steps[cur].a)}</b> (단계를 눌러서 바꾸기)` : "";
   const cs = D.steps[cur];
   document.querySelectorAll("#preMods button").forEach(b=>b.classList.toggle("on", !!cs && cs.pre===b.dataset.pre));
   document.querySelectorAll("#signMods button").forEach(b=>b.classList.toggle("on", !!cs && cs.mods.includes(b.dataset.mod)));
@@ -111,7 +99,7 @@ function render(){
   $("editActs").textContent = actEdit ? "편집 끝" : "내 버튼 편집";
   $("acts").innerHTML = allActs().map(a => {
     const isCustom = customActs.includes(a);
-    const cls = a==="하차" ? "start" : a==="도착" ? "end" : isCustom ? "custom" : "";
+    const cls = isCustom ? "custom" : "";
     return `<button data-act="${esc(a)}" class="${cls}">${esc(a)}${isCustom?`<span class="x" data-rm="${esc(a)}" aria-label="${esc(a)} 삭제">✕</span>`:""}</button>`;
   }).join("") + `<button class="add" id="addAct">+ 단계 추가</button>`;
 
@@ -125,7 +113,6 @@ ${esc(r.steps.map(stepText).join(" → "))}${r.note?"\n"+esc("비고: "+r.note):
     .concat(pend.map(r => item(r, '<span class="pill pending">내 제보 · 검수 대기</span>')));
   $("saved").innerHTML = html.length ? html.join("")
     : `<span class="sub">${conn==="loading" ? "불러오는 중…" : `방향 ${d+1}에 등록된 경로가 아직 없어요. 첫 경로를 알려주세요!`}</span>`;
-  $("out").textContent = stationText();
   persist();
 }
 
@@ -176,7 +163,7 @@ $("acts").addEventListener("click", e => {
   if (rm){ e.stopPropagation(); customActs=customActs.filter(a=>a!==rm.dataset.rm); store(ACTS_KEY, customActs); render(); return }
   if (e.target.closest("#addAct")){ $("newActRow").hidden=false; $("newAct").focus(); return }
   const b=e.target.closest("button[data-act]"); if(!b || actEdit) return;
-  S.draft.steps.push({a:b.dataset.act, pre:"", mods:[]}); sel=null; render();
+  S.draft.steps.splice(S.draft.steps.length-1, 0, {a:b.dataset.act, pre:"", mods:[]}); sel=null; render();
 });
 $("editActs").addEventListener("click", () => { actEdit=!actEdit; if(actEdit && !customActs.length) toast("직접 추가한 버튼만 지울 수 있어요"); render() });
 function addAct(){
@@ -193,7 +180,7 @@ $("strip").addEventListener("click", e => {
   const b=e.target.closest(".step"); if(!b) return;
   const i=+b.dataset.i; sel = sel===i ? null : i; render();
 });
-const curStep = () => { const st=S.draft.steps; return st[sel!=null?sel:st.length-1] };
+const curStep = () => { const st=S.draft.steps; return st[sel!=null?sel:Math.max(0, st.length-2)] };
 $("preMods").addEventListener("click", e => {
   const b=e.target.closest("button"), s=curStep(); if(!b||!s) return;
   s.pre = s.pre===b.dataset.pre ? "" : b.dataset.pre; render();
@@ -211,10 +198,11 @@ function addCustom(){
 $("addCustom").addEventListener("click", addCustom);
 $("custom").addEventListener("keydown", e => { if(e.key==="Enter"){ e.preventDefault(); addCustom() } });
 $("undo").addEventListener("click", () => {
-  const st=S.draft.steps; if(!st.length) return;
-  st.splice(sel!=null?sel:st.length-1, 1); sel=null; render();
+  const st=S.draft.steps, i = sel!=null ? sel : st.length-2;
+  if (i<=0 || i>=st.length-1){ toast("하차와 도착은 고정이라 못 지워. 붙인 내용만 눌러서 빼줘"); return }
+  st.splice(i, 1); sel=null; render();
 });
-$("clearSteps").addEventListener("click", () => { S.draft.steps=[]; sel=null; render() });
+$("clearSteps").addEventListener("click", () => { S.draft.steps=fixedEnds([]); sel=null; render() });
 
 /* 스톱워치 */
 const elapsed = () => timer.acc + (timer.run ? performance.now()-timer.start : 0);
@@ -243,7 +231,7 @@ $("save").addEventListener("click", async () => {
   if (!S.station.trim() || !String(S.line).trim()){ toast("역 이름이랑 호선을 먼저 적어줘"); return }
   if (!S.prev.trim() || !S.next.trim()){ toast("양옆 역을 적어줘. 방향 구분에 필요해"); return }
   if (!D.car || !D.door){ toast("하차 문(칸, 문)을 골라줘"); return }
-  if (!D.steps.length){ toast("동선을 한 단계 이상 넣어줘"); return }
+  if (D.steps.length<3){ toast("하차와 도착 사이에 동선을 한 단계 이상 넣어줘"); return }
   if (!isTeam && Date.now()-lastSubmit < COOLDOWN_MS){ toast("조금만 있다가 다시 등록해줘"); return }
 
   const [from,to] = dirStations(S.dir);
@@ -278,10 +266,6 @@ $("save").addEventListener("click", async () => {
   render();
 });
 
-$("copy").addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText(stationText()); toast("복사했어!") }
-  catch(e){ const r=document.createRange(); r.selectNodeContents($("out")); const s=getSelection(); s.removeAllRanges(); s.addRange(r); toast("길게 눌러 복사해줘") }
-});
 document.addEventListener("visibilitychange", () => { if (document.visibilityState==="visible" && conn!=="config") refresh() });
 
 renderStatic(); render(); init();
