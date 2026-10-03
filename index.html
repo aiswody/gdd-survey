@@ -7,7 +7,7 @@
 <meta name="description" content="지하철에서 몇 번 칸 몇 번 문으로 내리면 화장실이 제일 가까운지, 같이 기록해 주세요.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <div class="wrap">
@@ -92,8 +92,8 @@
     </div>
 
     <div class="label">선택한 단계에 붙이기</div>
-    <div class="modgroup"><span class="modtag">방향</span><div class="mods" id="preMods"></div></div>
-    <div class="modgroup"><span class="modtag">표지판</span><div class="mods" id="signMods"></div></div>
+    <div class="modgroup"><span class="modtag">방향<small>예) 전방 계단</small></span><div class="mods" id="preMods"></div></div>
+    <div class="modgroup"><span class="modtag">표지판<small>예) 직진 (위 표지판)</small></span><div class="mods" id="signMods"></div></div>
     <div class="row">
       <input id="custom" class="grow" placeholder="직접 쓰기 (예: 4호선 방향, 한 칸만, 피자가게)" maxlength="30">
       <button id="addCustom">붙이기</button>
@@ -140,7 +140,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script src="config.js"></script>
-<script src="api.js?v=7"></script>
-<script src="index.js?v=7"></script>
+<script src="api.js?v=8"></script>
+<script src="index.js?v=8"></script>
 </body>
 </html>
