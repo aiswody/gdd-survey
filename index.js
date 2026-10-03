@@ -308,7 +308,7 @@ $("save").addEventListener("click", async () => {
   if (!S.station.trim() || !String(S.line).trim()){ toast("역 이름이랑 호선을 먼저 적어줘"); return }
   const nb = neighbors(), terminal = nb && nb.length===1;
   if (!S.prev.trim() || (!S.next.trim() && !terminal)){ toast("양옆 역을 정해줘. 방향 구분에 필요해"); return }
-  if (S.toiletId==null){ toast("어느 화장실로 가는 경로인지 골라줘"); return }
+  if (S.toiletId==null){ toast("도착한 화장실을 골라줘"); return }
   const custom = S.toiletId==="custom";
   if (custom && (!S.cGate || !S.cDetail.trim())){ toast("목록에 없는 화장실은 개찰구 안/밖이랑 위치를 적어줘"); return }
   if (!D.car || !D.door){ toast("하차 문(칸, 문)을 골라줘"); return }
@@ -333,7 +333,9 @@ $("save").addEventListener("click", async () => {
     if (!isTeam) { mine.push({...row, at:Date.now()}); store(MINE_KEY, mine) }
     lastSubmit = Date.now();
     toast(isTeam ? "등록 완료! 바로 반영됐어" : "고마워! 팀 확인 후 반영할게");
-    S.draft=blankDraft(); sel=null; resetWatch(); fillInputs();
+    S.draft=blankDraft(); sel=null; resetWatch();
+    const tl = stationToilets(); S.toiletId = tl.length===1 ? tl[0].id : null;   // 다음 경로는 다른 화장실일 수 있음
+    S.cGate=""; S.cDetail=""; S.cStalls=""; fillInputs();
     await refresh();
   } catch(e) {
     toast(e.status===400 ? "입력값을 다시 확인해줘 (글자 수가 너무 길 수도 있어)" : "등록 실패. 잠시 후 다시 눌러줘");

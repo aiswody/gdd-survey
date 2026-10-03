@@ -7,7 +7,7 @@
 <meta name="description" content="지하철에서 몇 번 칸 몇 번 문으로 내리면 화장실이 제일 가까운지, 같이 기록해 주세요.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div class="wrap">
@@ -23,24 +23,6 @@
     <div class="lines" id="linePick"></div>
     <input id="station" list="stationList" placeholder="역 이름 검색 (예: 충무로)" autocomplete="off">
     <datalist id="stationList"></datalist>
-  </section>
-
-  <!-- 목적지 화장실 -->
-  <section class="card">
-    <h2>어느 화장실로 가?</h2>
-    <div class="list" id="toiletPick"></div>
-    <div id="customToilet" class="list" hidden>
-      <div class="seg" id="cGate">
-        <button data-v="개찰구 내부" aria-pressed="false">개찰구 안</button>
-        <button data-v="개찰구 외부" aria-pressed="false">개찰구 밖</button>
-      </div>
-      <input id="cDetail" maxlength="100" placeholder="위치 (예: 지하1층 2번 출구 쪽)">
-      <div class="row">
-        <span class="label">남자 대변기</span>
-        <input id="cStalls" class="num" inputmode="numeric" placeholder="칸">
-        <span class="label">칸 (몰라도 됨)</span>
-      </div>
-    </div>
   </section>
 
   <!-- 방향 -->
@@ -116,6 +98,21 @@
       <input id="sec" class="num" inputmode="numeric" placeholder="0"><span class="label">초</span>
     </div>
 
+    <div class="label">도착한 화장실은 어디야? (미리 정해도 돼)</div>
+    <div class="list" id="toiletPick"></div>
+    <div id="customToilet" class="list" hidden>
+      <div class="seg" id="cGate">
+        <button data-v="개찰구 내부" aria-pressed="false">개찰구 안</button>
+        <button data-v="개찰구 외부" aria-pressed="false">개찰구 밖</button>
+      </div>
+      <input id="cDetail" maxlength="100" placeholder="위치 (예: 지하1층 2번 출구 쪽)">
+      <div class="row">
+        <span class="label">남자 대변기</span>
+        <input id="cStalls" class="num" inputmode="numeric" placeholder="칸">
+        <span class="label">칸 (몰라도 됨)</span>
+      </div>
+    </div>
+
     <div class="label">비고</div>
     <textarea id="note" maxlength="500" placeholder="예: 1호선 방향으로 가는 거 아님"></textarea>
 
@@ -142,7 +139,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script src="config.js"></script>
-<script src="api.js?v=3"></script>
-<script src="index.js?v=3"></script>
+<script src="api.js?v=4"></script>
+<script src="index.js?v=4"></script>
 </body>
 </html>
