@@ -92,8 +92,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .modtag{flex:none;width:44px;font-size:12px;font-weight:700;color:var(--muted);padding-top:8px}
 .modgroup .mods{flex:1;min-width:0}
 .modgroup + .modgroup{border-top:1px dashed var(--line);padding-top:8px}
-.acts .sep{grid-column:1/-1;font-size:12px;color:var(--muted);padding-top:4px}
-.acts .minor{font-size:13px;padding:10px 4px;color:var(--muted)}
+
 .list{display:flex;flex-direction:column;gap:8px}
 .item{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
 .item .t{flex:1;min-width:0;font-size:13px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}

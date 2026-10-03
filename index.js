@@ -1,8 +1,6 @@
 const $ = id => document.getElementById(id);
-// 자주 쓰는 단계 / 가끔 쓰는 단계
-const MAIN_ACTS = ["계단","직진","우회전","좌회전","유턴"];
-const MINOR_ACTS = ["에스컬레이터","개찰구","엘리베이터","무빙워크"];
-const BASE_ACTS = MAIN_ACTS.concat(MINOR_ACTS);
+// 자주 쓰는 단계부터
+const BASE_ACTS = ["계단","직진","우회전","좌회전","유턴","에스컬레이터","개찰구","엘리베이터","무빙워크"];
 const PRE = ["전방","왼쪽","오른쪽","뒤쪽"];
 const SIGN = ["위 표지판","왼쪽 벽 표지판","오른쪽 벽 표지판","정면 표지판","바닥 표지판","표지판 없음"];
 const DOORS = 4, COOLDOWN_MS = 15000;
@@ -165,11 +163,9 @@ function render(){
   $("acts").classList.toggle("editing", actEdit);
   $("editActs").textContent = actEdit ? "편집 끝" : "내 버튼 편집";
   const actBtn = (a, cls) => `<button data-act="${esc(a)}" class="${cls}">${esc(a)}${cls==="custom"?`<span class="x" data-rm="${esc(a)}" aria-label="${esc(a)} 삭제">✕</span>`:""}</button>`;
-  $("acts").innerHTML = MAIN_ACTS.map(a => actBtn(a, "")).join("")
+  $("acts").innerHTML = BASE_ACTS.map(a => actBtn(a, "")).join("")
     + customActs.map(a => actBtn(a, "custom")).join("")
-    + `<button class="add" id="addAct">+ 단계 추가</button>`
-    + `<span class="sep">가끔 쓰는 것</span>`
-    + MINOR_ACTS.map(a => actBtn(a, "minor")).join("");
+    + `<button class="add" id="addAct">+ 단계 추가</button>`;
 
   // 이 역 경로
   $("savedTitle").textContent = `${S.station||"이 역"} · 방향 ${d+1} 경로`;
